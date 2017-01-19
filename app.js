@@ -1,3 +1,21 @@
+if(!localStorage.getItem('uniqueId')) {
+
+	localStorage.setItem('uniqueId', 0);
+}
+
+if(!localStorage.getItem('events')) {
+
+	localStorage.setItem('events', JSON.stringify({}));
+}
+
+function generateUniqueId() {
+
+	var lastId = JSON.parse(localStorage.getItem('uniqueId'));
+	var nextId = lastId + 1;
+	localStorage.setItem('uniqueId', nextId);
+	return nextId;
+}
+
 var calendar = React.createClass({
 
 	getInitialState: function() {
@@ -12,10 +30,28 @@ var calendar = React.createClass({
   },
 	showEvents: function(day) {
 
+		this.props.showDateEvents(JSON.parse(localStorage.getItem('events'))[this.monthName + '-' + day + '-' + this.year]);
 		this.setState({selected: this.monthName + '-' + day + '-' + this.year});
 		this.isActive(this.monthName + '-' + day + '-' + this.year);
 	},
-	 isActive:function(value) {
+	calendarSaveEvent: function(eventObj) {
+
+		var storedEvents =  JSON.parse(localStorage.getItem('events'));
+
+		if(!storedEvents[eventObj.startDate]) {
+
+			storedEvents[eventObj.startDate] = [eventObj];
+			localStorage.setItem('events', JSON.stringify(storedEvents));
+			this.props.showDateEvents(JSON.parse(localStorage.getItem('events'))[eventObj.startDate]);
+		}
+		else {
+
+			storedEvents[eventObj.startDate].push(eventObj);
+			localStorage.setItem('events', JSON.stringify(storedEvents));
+			this.props.showDateEvents(JSON.parse(localStorage.getItem('events'))[eventObj.startDate]);
+		}
+	},
+	isActive:function(value) {
 
     return ((value === this.state.selected) ? 'calendar-day selected-day' : 'calendar-day');
   },
@@ -102,25 +138,200 @@ var calendar = React.createClass({
 
 		return (
 
-			<table className="calendar">
-				<tr><th className="calendar-header">{this.monthName + " " + this.year}</th></tr>
-				<tr className="calendar-day-headers">{this.dayHeaders}</tr>
+			<div>
 
-				{this.monthWeeks}
-				
-			</table>
+				<table className="calendar">
+					<tr><th className="calendar-header">{this.monthName + " " + this.year}</th></tr>
+					<tr className="calendar-day-headers">{this.dayHeaders}</tr>
 
+					{this.monthWeeks}
+					
+				</table>
+
+				<button type="button" className="button button-event" onClick={this.props.createEvent.bind(this, this.state.selected, 'create', this.calendarSaveEvent)}>Create Event</button>
+
+			</div>
 		);
 	}
 });
 
 var event = React.createClass({
 
-	render: function() {
-		
-		// return (
+	getInitialState: function() {
 
-		// );
+    return {
+
+      view: this.props.eventView,
+      formData: {}
+    }
+  },
+	createNewEventTemplate: function(eventDate, eventView) {
+
+		return(
+
+			<form ref={eventDate}>
+
+				<div className="form-section">
+					<label for="eventStartDate">Event Start Date</label>
+					<input ref="eventStartDate" name="eventStartDate" className="event-date" placeholder={eventDate} disabled/>
+				</div>
+
+				<div className="form-section">
+					<label for="eventEndDate">Event End Date</label>
+					<input ref="eventEndDate" name="eventEndDate" className="event-date" placeholder="Enter Event End Date"/>
+				</div>
+
+				<div className="form-section">
+					<label for="eventTitle">Event Title</label>
+					<input ref="eventTitle" name="eventTitle" className="event-title" placeholder="Enter Event Name/Title"/>
+				</div>
+
+				<div className="form-section">
+					<label for="eventLocation">Event Location</label>
+					<input ref="eventLocation" name="eventLocation" className="event-location" placeholder="Enter Event Location"/>
+				</div>
+
+				<div className="form-section">
+					<button type="button" className="button" onClick={this.saveEvent}>Save</button>
+					<button type="button" className="button button-next" onClick={this.cancelEventCreation}>Cancel</button>
+				</div>
+			</form>
+		);
+	},
+	listEventsTemplate: function(event) {
+		
+		if(event !== undefined) {
+
+			return(
+
+				<div>
+
+					<div className="form-section">
+
+						<p>{event.eventTitle}, {event.location}</p>
+						
+					</div>
+
+					<div className="form-section">
+						<button type="button" className="button" onClick={this.props.editEvent.bind(this, event)}>Edit</button>
+						<button type="button" className="button button-next" onClick={this.deleteEvent.bind(this, event)}>Delete</button>
+					</div>
+
+				</div>
+
+			);
+		}
+		else {
+
+			return null;
+		}
+	},
+	editEventTemplate: function(event) {
+
+		return(
+
+			<form ref={event.id}>
+
+				<div className="form-section">
+					<label for="eventStartDate">Event Start Date</label>
+					<input ref="eventStartDate" name="eventStartDate" className="event-date" placeholder={event.startDate} disabled/>
+				</div>
+
+				<div className="form-section">
+					<label for="eventEndDate">Event End Date</label>
+					<input ref="eventEndDate" name="eventEndDate" className="event-date" placeholder={event.endDate}/>
+				</div>
+
+				<div className="form-section">
+					<label for="eventTitle">Event Title</label>
+					<input ref="eventTitle" name="eventTitle" className="event-title" placeholder={event.eventTitle}/>
+				</div>
+
+				<div className="form-section">
+					<label for="eventLocation">Event Location</label>
+					<input ref="eventLocation" name="eventLocation" className="event-location" placeholder={event.location}/>
+				</div>
+
+				<div className="form-section">
+					<button type="button" className="button" onClick={this.updateEvent.bind(this, event)}>Update</button>
+					<button type="button" className="button button-next" onClick={this.props.cancel}>Cancel</button>
+				</div>
+			</form>
+		);
+	},
+	cancelEventCreation: function() {
+		
+		this.props.creatingEvent(false);
+	},
+	saveEvent: function() {
+
+		this.state.formData.id = generateUniqueId();
+		this.state.formData.startDate = this.refs.eventStartDate.placeholder;
+		this.state.formData.endDate = this.refs.eventEndDate.value;
+		this.state.formData.eventTitle = this.refs.eventTitle.value;
+		this.state.formData.location = this.refs.eventLocation.value;
+
+		this.props.save(this.state.formData);
+		this.props.creatingEvent(false);
+	},
+	updateEvent: function(event) {
+	
+		var self = this;
+		
+		event.startDate = this.refs.eventStartDate.placeholder;
+		event.endDate = this.refs.eventEndDate.value;
+		event.eventTitle = this.refs.eventTitle.value;
+		event.location = this.refs.eventLocation.value;
+
+		var eventArray = JSON.parse(localStorage.getItem('events'));
+
+		eventArray[event.startDate].forEach(function(item, itemIndex) {
+
+			if(item.id === event.id) {
+				
+				eventArray[event.startDate][itemIndex] = event;
+				localStorage.setItem('events', JSON.stringify(eventArray));
+				self.props.showDateEvents(eventArray[event.startDate]);
+			}
+		});
+	},
+	deleteEvent: function(event) {
+
+		var self = this;
+		var eventArray = JSON.parse(localStorage.getItem('events'));
+
+		eventArray[event.startDate].forEach(function(item, itemIndex) {
+
+			if(item.id === event.id) {
+				
+				eventArray[event.startDate].splice(itemIndex, 1);
+				localStorage.setItem('events', JSON.stringify(eventArray));
+				self.props.showDateEvents(eventArray[event.startDate]);
+			}
+		});
+	},
+	render: function() {
+
+		switch(this.state.view) {
+
+			case 'create':
+			
+			return this.createNewEventTemplate(this.props.eventDate, this.props.eventView);
+
+			break;
+
+			case 'list':
+
+			return this.listEventsTemplate(this.props.event);
+
+			break;
+			
+			case 'edit':
+
+			return this.editEventTemplate(this.props.event);
+
+			break;
+		}
 	}
 });
 
@@ -131,50 +342,130 @@ var app = React.createClass({
 		return {
 
 			month: new Date().getMonth(),
-			year:new Date().getFullYear()
+			year:new Date().getFullYear(),
+			showCalendar: true,
+			isCreating: false,
+			isEditing: false,
+			eventList: [],
+			newEvent: [],
+			eventBeingEdited: [],
+			notification: '',
+			showEventList: true,
+			eventListDate: ''
 		};
 	},
 	showPreviousMonth: function() {
 
+		this.refs[this.state.month].setState({selected: ''})
+		this.isCreatingEvent(false);
+
 		if(this.state.month === 0) {
 
 			var newYear = this.state.year - 1;
-			this.setState({month: 11, year: newYear});
+			this.setState({month: 11, year: newYear, showEventList: false});
 		}
 		else {
 
 			var newMonth = this.state.month - 1;
-			this.setState({month: newMonth});
+			this.setState({month: newMonth, showEventList: false});
 		}
 	},
 	showNextMonth: function() {
+		
+		this.refs[this.state.month].setState({selected: ''});
+		this.isCreatingEvent(false);
 
 		if(this.state.month === 11) {
 
 			var newYear = this.state.year + 1;
-			this.setState({month: 0, year: newYear});
+			this.setState({month: 0, year: newYear, showEventList: false});
 		}
 		else {
 
 			var newMonth = this.state.month + 1;
-			this.setState({month: newMonth});
+			this.setState({month: newMonth, showEventList: false});
 		}
 	},
-	createNewEvent: function() {
+	createNewEvent: function(eventDate, eventView, calendarSaveEvent) {
+
+		if(!eventDate) {
+
+			this.setState({notification: 'No event start date selected!'});
+			return null;
+		}
+
+		if(this.state.isCreating === true) {
+
+			return null;
+		}
+		else {
+
+			this.isCreatingEvent(true);
+			this.state.newEvent.push(React.createElement(event, {eventDate: eventDate, eventView: eventView, creatingEvent: this.isCreatingEvent, save: calendarSaveEvent}));
+		}
+	},
+	isCreatingEvent: function(trueOrFalse) {
+
+		if(trueOrFalse === false) {
+
+			this.state.newEvent.length = 0;
+			this.setState({showEventList: true, isCreating: false});
+		}
+
+		if(trueOrFalse === true) {
+
+			this.setState({showEventList: false, isCreating: true});
+		}
+	},
+	editEvent: function(eventObj) {
+
+		this.state.eventBeingEdited.push(React.createElement(event, {event: eventObj, showDateEvents: this.showDateEvents, eventView: 'edit', cancel: this.cancelEventEditing}));
+		this.setState({isEditing: true, showEventList: false});
+	},
+	cancelEventEditing: function() {
+
+		this.setState({eventBeingEdited: [], isEditing: false, showEventList: true});
+	},
+	showDateEvents: function(eventsArray) {
 		
-	}
-	render: function() {
-		
+		this.isCreatingEvent(false);
+		this.cancelEventEditing();
+
+		this.state.eventList.length = 0;
+		this.setState({notification: ''});
+
+		if(eventsArray !== undefined && eventsArray.length > 0) {
+
+			this.setState({eventListDate: eventsArray[0].startDate.replace(/-/g, ' ')});
+
+			for(var i = 0; i < eventsArray.length; i++) {
+
+				this.state.eventList.push(React.createElement(event, {
+					eventView: 'list',   
+					event: eventsArray[i],
+					showDateEvents: this.showDateEvents,
+					editEvent: this.editEvent
+				}));
+			}
+		}
+	},
+	render: function() {	
+
 		return (
 
 			<div id="app">
 
-				<button className="button" onClick={this.showPreviousMonth}>Last Month</button>
-				<button className="button button-next" onClick={this.showNextMonth}>Next Month</button>
+				<button type="button" className="button" onClick={this.showPreviousMonth}>Last Month</button>
+				<button type="button" className="button button-next" onClick={this.showNextMonth}>Next Month</button>
 
-				{React.createElement(calendar, {month: this.state.month, year: this.state.year})}
+				{React.createElement(calendar, {ref:this.state.month, month: this.state.month, year: this.state.year, createEvent: this.createNewEvent, showDateEvents: this.showDateEvents})}
+				{this.state.eventList.length > 0  && this.state.showEventList ? <h3>Events for: {this.state.eventListDate}</h3> : null}
+				{this.state.eventList.length < 1 && this.state.showEventList ? <h3>There are no events scheduled for today.</h3> : null}
+				{this.state.isEditing && this.state.eventBeingEdited.length > 0 ? this.state.eventBeingEdited : null}
+				{this.state.notification !== '' ? <h3>{this.state.notification}</h3> : null}
+				{this.state.showEventList ? this.state.eventList : null}
+				{this.state.isCreating ? this.state.newEvent : null}
 
-				<button className="button button-event" onClick={this.createNewEvent}>Create Event</button>
 			</div>
 		);
 	}
