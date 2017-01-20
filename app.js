@@ -159,11 +159,25 @@ var event = React.createClass({
 
 	getInitialState: function() {
 
-    return {
+		if(this.props.eventView === 'edit') {
 
-      view: this.props.eventView,
-      formData: {}
-    }
+			return {
+
+	      view: this.props.eventView,
+	      eventBeingEdited: this.props.event,
+	      eventEndDate: this.props.event.endDate,
+	      eventTitle: this.props.event.eventTitle,
+	      eventLocation: this.props.event.location
+	    }
+		}
+		else {
+
+			return {
+
+				view: this.props.eventView,
+	      formData: {}
+			}
+		}
   },
 	createNewEventTemplate: function(eventDate, eventView) {
 
@@ -173,7 +187,7 @@ var event = React.createClass({
 
 				<div className="form-section">
 					<label for="eventStartDate">Event Start Date</label>
-					<input ref="eventStartDate" name="eventStartDate" className="event-date" placeholder={eventDate} disabled/>
+					<input ref="eventStartDate" name="eventStartDate" className="event-date" value={eventDate} disabled/>
 				</div>
 
 				<div className="form-section">
@@ -226,38 +240,61 @@ var event = React.createClass({
 			return null;
 		}
 	},
-	editEventTemplate: function(event) {
+	editEventTemplate: function() {
 
 		return(
 
-			<form ref={event.id}>
+			<form ref={this.state.eventBeingEdited.id}>
 
 				<div className="form-section">
 					<label for="eventStartDate">Event Start Date</label>
-					<input ref="eventStartDate" name="eventStartDate" className="event-date" placeholder={event.startDate} disabled/>
+					<input ref="eventStartDate" name="eventStartDate" className="event-date" onChange={this.updateInputValue} value={this.state.eventBeingEdited.startDate} disabled/>
 				</div>
 
 				<div className="form-section">
 					<label for="eventEndDate">Event End Date</label>
-					<input ref="eventEndDate" name="eventEndDate" className="event-date" placeholder={event.endDate}/>
+					<input ref="eventEndDate" name="eventEndDate" className="event-date" onChange={this.updateInputValue} value={this.state.eventEndDate}/>
 				</div>
 
 				<div className="form-section">
 					<label for="eventTitle">Event Title</label>
-					<input ref="eventTitle" name="eventTitle" className="event-title" placeholder={event.eventTitle}/>
+					<input ref="eventTitle" name="eventTitle" className="event-title" onChange={this.updateInputValue} value={this.state.eventTitle}/>
 				</div>
 
 				<div className="form-section">
 					<label for="eventLocation">Event Location</label>
-					<input ref="eventLocation" name="eventLocation" className="event-location" placeholder={event.location}/>
+					<input ref="eventLocation" name="eventLocation" className="event-location" onChange={this.updateInputValue} value={this.state.eventLocation}/>
 				</div>
 
 				<div className="form-section">
-					<button type="button" className="button" onClick={this.updateEvent.bind(this, event)}>Update</button>
+					<button type="button" className="button" onClick={this.updateEvent.bind(this, this.state.eventBeingEdited)}>Update</button>
 					<button type="button" className="button button-next" onClick={this.props.cancel}>Cancel</button>
 				</div>
 			</form>
 		);
+	},
+	updateInputValue: function(e) {
+
+		switch(e.target.name) {
+
+			case 'eventEndDate':
+
+			this.setState({eventEndDate: e.target.value});
+
+			break;
+
+			case 'eventTitle':
+
+			this.setState({eventTitle: e.target.value});
+
+			break;
+
+			case 'eventLocation':
+
+			this.setState({eventLocation: e.target.value});
+
+			break;
+		}
 	},
 	cancelEventCreation: function() {
 		
@@ -266,7 +303,7 @@ var event = React.createClass({
 	saveEvent: function() {
 
 		this.state.formData.id = generateUniqueId();
-		this.state.formData.startDate = this.refs.eventStartDate.placeholder;
+		this.state.formData.startDate = this.refs.eventStartDate.value;
 		this.state.formData.endDate = this.refs.eventEndDate.value;
 		this.state.formData.eventTitle = this.refs.eventTitle.value;
 		this.state.formData.location = this.refs.eventLocation.value;
@@ -278,7 +315,7 @@ var event = React.createClass({
 	
 		var self = this;
 		
-		event.startDate = this.refs.eventStartDate.placeholder;
+		event.startDate = this.refs.eventStartDate.value;
 		event.endDate = this.refs.eventEndDate.value;
 		event.eventTitle = this.refs.eventTitle.value;
 		event.location = this.refs.eventLocation.value;
@@ -328,7 +365,7 @@ var event = React.createClass({
 			
 			case 'edit':
 
-			return this.editEventTemplate(this.props.event);
+			return this.editEventTemplate();
 
 			break;
 		}
@@ -414,6 +451,7 @@ var app = React.createClass({
 
 		if(trueOrFalse === true) {
 
+			this.cancelEventEditing();
 			this.setState({showEventList: false, isCreating: true});
 		}
 	},
